@@ -319,7 +319,7 @@ HEADER
 }
 
 sub check_icon {
-    defined($_[0]) && (chr ord($_[0]) eq '/') ? $_[0] : $desk_obj->get_icon_path($_[0])
+    (defined($_[0]) && (chr ord($_[0]) eq '/') ? $_[0] : $desk_obj->get_icon_path($_[0]))
       || $desk_obj->get_icon_path($CONFIG{missing_icon});
 }
 
@@ -393,9 +393,9 @@ foreach my $schema (@$SCHEMA) {
     elsif (exists $schema->{fbmenugen}) {
         $generated_menu .= begin_category(@{$schema->{fbmenugen}});
         foreach my $item (
-                          ["$CONFIG{editor} $menufile",    'Open the menu file'],
-                          ["$CONFIG{editor} $config_file", 'Open the config file'],
-                          ["$CONFIG{editor} $schema_file", 'Open the schema file'],
+                          ["$CONFIG{editor} \Q$menufile\E",    'Open the menu file'],
+                          ["$CONFIG{editor} \Q$config_file\E", 'Open the config file'],
+                          ["$CONFIG{editor} \Q$schema_file\E", 'Open the schema file'],
           ) {
             $generated_menu .= prepare_item(@$item, $schema->{fbmenugen}[1]);
         }

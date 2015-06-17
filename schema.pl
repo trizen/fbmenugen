@@ -27,9 +27,8 @@ our $SCHEMA = [
     #          COMMAND             LABEL                ICON
     {item => ['pcmanfm',       'File Manager',      'file-manager']},
     {item => ['xterm',         'Terminal',          'terminal']},
-    {item => ['google-chrome', 'Web Browser',       'web-browser']},
+    {item => ['chromium',      'Web Browser',       'web-browser']},
     {item => ['fbrun',         'Run command',       'system-run']},
-    {item => ['pidgin',        'Instant messaging', 'system-users']},
 
     {sep => 'undef'},
 
@@ -58,9 +57,10 @@ our $SCHEMA = [
     #{end_cat   => undef},
 
     #                  LABEL               ICON
-    {fbmenugen  => ['FBMenuConf',   'preferences-desktop']},
-    {fluxbox    => ['Fluxbox menu', 'package_settings']},
+    {fbmenugen  => ['Fbmenugen',    'preferences-desktop']},
     {sep        => undef},
+    {fluxbox    => ['Fluxbox menu', 'preferences-desktop']},
+    {sep       => undef},
     {regenerate => ['Regenerate',     'gtk-refresh']},
 
     # This options uses the default Fluxbox action "Exit"
