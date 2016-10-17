@@ -24,11 +24,11 @@
 require "$ENV{HOME}/.config/fbmenugen/config.pl";
 
 our $SCHEMA = [
-    #          COMMAND             LABEL                ICON
-    {item => ['pcmanfm',       'File Manager',      'file-manager']},
-    {item => ['xterm',         'Terminal',          'terminal']},
-    {item => ['chromium',      'Web Browser',       'web-browser']},
-    {item => ['fbrun',         'Run command',       'system-run']},
+    #          COMMAND                 LABEL                ICON
+    {item => ['xdg-open .',        'File Manager',      'file-manager']},
+    {item => ['xterm',             'Terminal',          'terminal']},
+    {item => ['xdg-open http://',  'Web Browser',       'web-browser']},
+    {item => ['fbrun',             'Run command',       'system-run']},
 
     {sep => 'undef'},
 
@@ -45,7 +45,7 @@ our $SCHEMA = [
     {cat => ['settings',    'Settings',    'applications-accessories']},
     {cat => ['system',      'System',      'applications-system']},
 
-    #{cat => ['qt',          'QT Applications',    'qtlogo']},
+    #{cat => ['qt',          'QT Applications',    'qt4logo']},
     #{cat => ['gtk',         'GTK Applications',   'gnome-applications']},
     #{cat => ['x_xfce',      'XFCE Applications',  'applications-other']},
     #{cat => ['gnome',       'GNOME Applications', 'gnome-applications']},
@@ -63,6 +63,6 @@ our $SCHEMA = [
     {sep       => undef},
     {regenerate => ['Regenerate',     'gtk-refresh']},
 
-    # This options uses the default Fluxbox action "Exit"
+    # This option uses the default Fluxbox action "Exit"
     {exit       => ['Exit',           'exit']},
 ]
