@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2011-2016 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
+# Copyright (C) 2010-2016 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ my $schema_file = "$config_dir/schema.pl";
 my $config_file = "$config_dir/config.pl";
 my $icons_db    = "$config_dir/icons.db";
 my $fluxbox_dir = "$home_dir/.fluxbox";
-my $menufile    = "$fluxbox_dir/menu";
+my $menu_file   = "$fluxbox_dir/menu";
 
 sub usage {
     print <<"HELP";
@@ -68,7 +68,6 @@ Other:
 Help:
     -h  : print this message
     -v  : print the version number
-    -H  : print help message for config files
 
 Example:
     ** Generate a simple menu
@@ -172,7 +171,7 @@ if (@ARGV) {
             exit 0;
         }
         elsif ($arg eq '-o') {
-            $menufile = shift(@ARGV) // die "$0: option `-o' requires an argument!\n";
+            $menu_file = shift(@ARGV) // die "$0: option `-o' requires an argument!\n";
         }
         elsif ($arg eq '-S') {
             $schema_file = shift(@ARGV) // die "$0: option `-S' requires an argument!\n";
@@ -182,9 +181,6 @@ if (@ARGV) {
         }
         elsif ($arg eq '-h') {
             usage();
-        }
-        elsif ($arg eq '-H') {
-            full_help();
         }
         else {
             die "$0: unknown option: `$arg'\n";
@@ -307,10 +303,10 @@ my $generated_menu = <<"HEADER";
 HEADER
 
 {
-    my $menu_backup = $menufile . '.bak';
-    if (not -e $menu_backup and -e $menufile) {
+    my $menu_backup = $menu_file . '.bak';
+    if (not -e $menu_backup and -e $menu_file) {
         require File::Copy;
-        File::Copy::cp($menufile, $menu_backup);
+        File::Copy::cp($menu_file, $menu_backup);
     }
 }
 
@@ -388,10 +384,11 @@ foreach my $schema (@$SCHEMA) {
     }
     elsif (exists $schema->{fbmenugen}) {
         $generated_menu .= begin_category(@{$schema->{fbmenugen}});
+        require Cwd;
         foreach my $item (
-                          ["$CONFIG{editor} \Q$menufile\E",    'Open the menu file'],
-                          ["$CONFIG{editor} \Q$config_file\E", 'Open the config file'],
-                          ["$CONFIG{editor} \Q$schema_file\E", 'Open the schema file'],
+                          [join(' ', $CONFIG{editor}, quotemeta(Cwd::abs_path($menu_file))),   'Menu file'],
+                          [join(' ', $CONFIG{editor}, quotemeta(Cwd::abs_path($config_file))), 'Config file'],
+                          [join(' ', $CONFIG{editor}, quotemeta(Cwd::abs_path($schema_file))), 'Schema file'],
           ) {
             $generated_menu .= prepare_item(@$item, $schema->{fbmenugen}[1]);
         }
@@ -409,7 +406,12 @@ EXIT
     }
     elsif (exists $schema->{regenerate}) {
         require Cwd;
-        my $regenerate_exec = join(q{ }, $^X, quotemeta(Cwd::abs_path($0)), $icons ? '-i' : '');
+        my $regenerate_exec = join(
+                                   q{ }, $^X, quotemeta(Cwd::abs_path($0)), ($icons ? '-i' : ()),
+                                   '-S' => quotemeta(Cwd::abs_path($schema_file)),
+                                   '-C' => quotemeta(Cwd::abs_path($config_file)),
+                                   '-o' => quotemeta(Cwd::abs_path($menu_file)),
+                                  );
 
         my ($label, $icon) = @{$schema->{regenerate}};
         $generated_menu .= prepare_item($regenerate_exec, $label, $icon);
@@ -449,8 +451,8 @@ FOOTER
 $generated_menu .= "\n[endencoding]\n[end]\n";
 
 my $out_fh = $pipe ? \*STDOUT : do {
-    open my $fh, '>', $menufile
-      or die "Can't open '${menufile}' for write: $!";
+    open my $fh, '>', $menu_file
+      or die "Can't open '${menu_file}' for write: $!";
     $fh;
 };
 
