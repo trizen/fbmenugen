@@ -21,14 +21,14 @@
 
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 17 October 2016
+# Latest edit on: 21 October 2016
 # Website: http://trizen.googlecode.com
 
 use 5.014;
 use Linux::DesktopFiles 0.08;
 
 my $pkgname = 'fbmenugen';
-my $version = '0.77';
+my $version = '0.78';
 
 my ($icons, $pipe, $reconfigure, $update_config);
 
