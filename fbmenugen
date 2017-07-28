@@ -26,6 +26,7 @@
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
+use File::Spec qw();
 use Linux::DesktopFiles 0.08;
 
 my $pkgname = 'fbmenugen';
@@ -247,6 +248,12 @@ if (not -e $schema_file) {
     }
     else {
         die "$0: schema file `$schema_file' does not exists!\n";
+    }
+}
+
+foreach my $file (\$schema_file, \$config_file) {
+    if (not File::Spec->file_name_is_absolute($$file)) {
+        $$file = File::Spec->rel2abs($$file);
     }
 }
 

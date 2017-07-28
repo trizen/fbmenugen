@@ -23,6 +23,8 @@
 
 require "$ENV{HOME}/.config/fbmenugen/config.pl";
 
+my $editor = $CONFIG->{editor};
+
 our $SCHEMA = [
     #          COMMAND                 LABEL                ICON
     {item => ['xdg-open .',        'File Manager',      'file-manager']},
@@ -47,16 +49,40 @@ our $SCHEMA = [
 
     #                  LABEL          ICON
     #{beg => ['My category',  'cat-icon']},
-    #             ... some items ...
+    #          ... some items ...
     #{end => undef},
 
-    #                  LABEL               ICON
-    {fbmenugen  => ['Fbmenugen',    'preferences-desktop']},
-    {sep        => undef},
-    {fluxbox    => ['Fluxbox menu', 'preferences-desktop']},
+    ## Custom advanced settings
     {sep       => undef},
-    {regenerate => ['Regenerate',     'gtk-refresh']},
+    {beg => ['Advanced Settings', 'applications-engineering']},
+
+      # Configuration files
+      {item => ["$editor ~/.conkyrc",              'Conky RC',    'text-x-generic']},
+      {item => ["$editor ~/.config/tint2/tint2rc", 'Tint2 Panel', 'text-x-generic']},
+
+      # fbmenugen category
+      {beg => ['Fbmenugen', 'accessories-text-editor']},
+
+        {item => ["$editor ~/.config/fbmenugen/schema.pl", 'Menu Schema', 'text-x-generic']},
+        {item => ["$editor ~/.config/fbmenugen/config.pl", 'Menu Config', 'text-x-generic']},
+
+        {sep  => undef},
+        {item => ['fbmenugen -i', 'Generate a menu with icons',     'accessories-text-editor']},
+        {item => ['fbmenugen',    'Generate a menu without icons',  'accessories-text-editor']},
+        {sep  => undef},
+
+        {item => ['fbmenugen -d', 'Refresh icon set', 'view-refresh']},
+      {end => undef},
+
+      # Fluxbox category
+      {fluxbox    => ['Fluxbox', 'preferences-desktop']},
+    {end => undef},
+
+    {sep => undef},
+
+    # Regenerate the menu
+    {regenerate => ['Refresh', 'gtk-refresh']},
 
     # This option uses the default Fluxbox action "Exit"
-    {exit       => ['Exit',           'exit']},
+    {exit => ['Exit', 'exit']},
 ]
