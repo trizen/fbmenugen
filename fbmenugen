@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2010-2016 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
+# Copyright (C) 2010-2017 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,10 +19,11 @@
 # A simple menu generator for the Fluxbox Window Manager
 # Should be installed in $PATH before the first execution!
 
+# Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 21 October 2016
-# Website: http://trizen.googlecode.com
+# Latest edit on: 28 July 2017
+# http://github.com/trizen/fbmenugen
 
 use 5.014;
 use Linux::DesktopFiles 0.08;
