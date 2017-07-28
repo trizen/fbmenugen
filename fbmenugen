@@ -23,7 +23,7 @@
 # License: GPLv3
 # Created on: 01 August 2010
 # Latest edit on: 28 July 2017
-# http://github.com/trizen/fbmenugen
+# https://github.com/trizen/fbmenugen
 
 use 5.014;
 use Linux::DesktopFiles 0.08;
