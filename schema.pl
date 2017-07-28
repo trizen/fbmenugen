@@ -10,7 +10,6 @@
     raw:       any valid Fluxbox menu entry               {raw => q(...)},
     beg:       begin of a category                        {beg => ["name", "icon"]},
     end:       end of a category                          {end => undef},
-    fbmenugen: generic menu settings                {fbmenugen => ["label", "icon"]},
     fluxbox:   the default Fluxbox config menu        {fluxbox => ["label", "icon"]},
     exit:      default "Exit" action                     {exit => ["label", "icon"]},
 
@@ -23,14 +22,16 @@
 
 require "$ENV{HOME}/.config/fbmenugen/config.pl";
 
+## Text editor
 my $editor = $CONFIG->{editor};
 
 our $SCHEMA = [
-    #          COMMAND                 LABEL                ICON
-    {item => ['xdg-open .',        'File Manager',      'file-manager']},
-    {item => ['xterm',             'Terminal',          'terminal']},
-    {item => ['xdg-open http://',  'Web Browser',       'web-browser']},
-    {item => ['fbrun',             'Run command',       'system-run']},
+
+    #          COMMAND                 LABEL              ICON
+    {item => ['xdg-open .',       'File Manager', 'system-file-manager']},
+    {item => ['xterm',            'Terminal',     'utilities-terminal']},
+    {item => ['xdg-open http://', 'Web Browser',  'web-browser']},
+    {item => ['fbrun',            'Run command',  'system-run']},
 
     {sep => 'undef'},
 
@@ -83,6 +84,6 @@ our $SCHEMA = [
     # Regenerate the menu
     {regenerate => ['Refresh', 'view-refresh']},
 
-    # This option uses the default Fluxbox action "Exit"
+    # This option uses the default Fluxbox's "Exit" action
     {exit => ['Exit', 'application-exit']},
 ]
