@@ -8,8 +8,8 @@
     cat:       add a category inside the menu             {cat => ["name", "label", "icon"]},
     sep:       horizontal line separator                  {sep => undef}, {sep => "label"},
     raw:       any valid Fluxbox menu entry               {raw => q(...)},
-    begin_cat: begin of a category                  {begin_cat => ["name", "icon"]},
-    end_cat:   end of a category                      {end_cat => undef},
+    beg:       begin of a category                        {beg => ["name", "icon"]},
+    end:       end of a category                          {end => undef},
     fbmenugen: generic menu settings                {fbmenugen => ["label", "icon"]},
     fluxbox:   the default Fluxbox config menu        {fluxbox => ["label", "icon"]},
     exit:      default "Exit" action                     {exit => ["label", "icon"]},
@@ -45,16 +45,10 @@ our $SCHEMA = [
     {cat => ['settings',    'Settings',    'applications-accessories']},
     {cat => ['system',      'System',      'applications-system']},
 
-    #{cat => ['qt',          'QT Applications',    'qt4logo']},
-    #{cat => ['gtk',         'GTK Applications',   'gnome-applications']},
-    #{cat => ['x_xfce',      'XFCE Applications',  'applications-other']},
-    #{cat => ['gnome',       'GNOME Applications', 'gnome-applications']},
-    #{cat => ['consoleonly', 'CLI Applications',   'applications-utilities']},
-
     #                  LABEL          ICON
-    #{begin_cat => ['My category',  'cat-icon']},
+    #{beg => ['My category',  'cat-icon']},
     #             ... some items ...
-    #{end_cat   => undef},
+    #{end => undef},
 
     #                  LABEL               ICON
     {fbmenugen  => ['Fbmenugen',    'preferences-desktop']},

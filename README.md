@@ -7,20 +7,19 @@ usage: fbmenugen [options]
 
 Options :
     -i  : use icons in menus
-    -p  : pipe menu (prints to the STDOUT)
+    -p  : pipe menu (prints to STDOUT)
 
 Other:
     -S <file>  : path to the schema.pl file
     -C <file>  : path to the config.pl file
     -o <file>  : menu file (default: ~/.fluxbox/menu)
     -u         : update the config file
-    -d         : regenerate icons.db
+    -d         : regenerate the cache DB
     -r         : regenerate the config file
 
 Help:
     -h  : print this message
     -v  : print the version number
-    -H  : print help message for config files
 
 Example:
     ** Generate a simple menu
