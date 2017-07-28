@@ -81,8 +81,8 @@ our $SCHEMA = [
     {sep => undef},
 
     # Regenerate the menu
-    {regenerate => ['Refresh', 'gtk-refresh']},
+    {regenerate => ['Refresh', 'view-refresh']},
 
     # This option uses the default Fluxbox action "Exit"
-    {exit => ['Exit', 'exit']},
+    {exit => ['Exit', 'application-exit']},
 ]
