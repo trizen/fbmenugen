@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2010-2016 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
+# Copyright (C) 2010-2017 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,18 +19,19 @@
 # A simple menu generator for the Fluxbox Window Manager
 # Should be installed in $PATH before the first execution!
 
+# Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 21 October 2016
-# Website: http://trizen.googlecode.com
+# Latest edit on: 28 July 2017
+# http://github.com/trizen/fbmenugen
 
 use 5.014;
 use Linux::DesktopFiles 0.08;
 
 my $pkgname = 'fbmenugen';
-my $version = '0.78';
+my $version = '0.99';
 
-my ($icons, $pipe, $reconfigure, $update_config);
+my ($with_icons, $pipe, $reconfigure, $update_config);
 
 our ($CONFIG, $SCHEMA);
 
@@ -45,7 +46,7 @@ my $xdg_config_home = $ENV{XDG_CONFIG_HOME} || "$home_dir/.config";
 my $config_dir  = "$xdg_config_home/$pkgname";
 my $schema_file = "$config_dir/schema.pl";
 my $config_file = "$config_dir/config.pl";
-my $icons_db    = "$config_dir/icons.db";
+my $cache_db    = "$config_dir/cache.db";
 my $fluxbox_dir = "$home_dir/.fluxbox";
 my $menu_file   = "$fluxbox_dir/menu";
 
@@ -55,14 +56,14 @@ usage: $0 [options]
 
 Options :
     -i  : use icons in menus
-    -p  : pipe menu (prints to the STDOUT)
+    -p  : pipe menu (prints to STDOUT)
 
 Other:
     -S <file>  : path to the schema.pl file
     -C <file>  : path to the config.pl file
     -o <file>  : menu file (default: ~/.fluxbox/menu)
     -u         : update the config file
-    -d         : regenerate icons.db
+    -d         : regenerate the cache DB
     -r         : regenerate the config file
 
 Help:
@@ -101,38 +102,17 @@ my $config_help = <<"HELP";
                                 {key => 'Exec', re => qr/\\\\\\\\/,  value => '\\\\', global => 1},    # for wine apps
                             ],
 
-
 || ICON SETTINGS
-    | icon_dirs_first     : When looking for icons, look in this directories first,
-                            before looking in the directories of the current icon theme.
-                            Example: [
-                                "\$ENV{HOME}/My icons",
-                            ],
-
-    | icon_dirs_second    : Look in this directories after looked in the directories of the
-                            current icon theme. (Before /usr/share/pixmaps)
-                            Example: [
-                                "/usr/share/icons/gnome",
-                            ],
-
-    | icon_dirs_last      : Look in this directories at the very last, after looked in
-                            /usr/share/pixmaps, /usr/share/icons/hicolor and some other
-                            directories.
-                            Example: [
-                                "/usr/share/icons/Tango",
-                            ],
-
-    | strict_icon_dirs    : A true value will make the script to look only inside the directories
-                            specified by you in either one of the above three options.
-
     | gtk_rc_filename     : Absolute path to the GTK configuration file.
-    | missing_image       : Use this icon for missing icons (default: gtk-missing-image)
-
+    | missing_icon        : Use this icon for missing icons (default: gtk-missing-image)
+    | icon_size           : Preferred size for icons. (default: 32)
+    | skip_svg_icons      : Ignore SVG icons. (default: 0)
+    | force_svg_icons     : Use only SVG icons. (default: 0)
+    | force_icon_size     : Use only icons at the preferred icon size, if possible. (default: 0)
 
 || KEYS
     | name_keys           : Valid keys for the item names.
                             Example: ['Name[fr]', 'GenericName[fr]', 'Name'],   # french menu
-
 
 || PATHS
     | desktop_files_paths   : Absolute paths which contain .desktop files.
@@ -142,17 +122,16 @@ my $config_help = <<"HELP";
                                 glob("\$ENV{HOME}/.local/share/applications/wine/Programs/*"),
                               ],
 
-
 || NOTES
     | Regular expressions:
-        * use qr/RE/ instead of 'RE'
-        * use qr/RE/i for case insensitive mode
+        * use qr/.../ instead of '...'
+        * use qr/.../i for case insensitive mode
 HELP
 
 if (@ARGV) {
     while (defined(my $arg = shift @ARGV)) {
         if ($arg eq '-i') {
-            $icons = 1;
+            $with_icons = 1;
         }
         elsif ($arg eq '-r') {
             $reconfigure = 1;
@@ -161,7 +140,7 @@ if (@ARGV) {
             $pipe = 1;
         }
         elsif ($arg eq '-d') {
-            unlink $icons_db;
+            unlink $cache_db;
         }
         elsif ($arg eq '-u') {
             $update_config = 1;
@@ -212,7 +191,6 @@ my %CONFIG = (
 
         keep_unknown_categories => 1,
         unknown_category_key    => 'other',
-        gtk_rc_filename         => "$home_dir/.gtkrc-2.0",
 
         skip_entry       => undef,
         substitutions    => undef,
@@ -226,23 +204,25 @@ my %CONFIG = (
             '/usr/share/applications',
             '/usr/local/share/applications',
             '/usr/share/applications/kde4',
+            "$home_dir/.local/share/applications",
         ],
 #>>>
-
-        icon_dirs_first  => undef,
-        icon_dirs_second => undef,
-        icon_dirs_last   => undef,
-        strict_icon_dirs => undef,
-
-        skip_svg_icons => 1,
     },
 
-    name_keys    => ['Name'],
-    menu_title   => 'Fluxbox',
-    terminal     => 'xterm',
-    editor       => 'geany',
-    missing_icon => 'gtk-missing-image',
-    VERSION      => $version,
+    name_keys  => ['Name'],
+    menu_title => 'Fluxbox',
+    terminal   => 'xterm',
+    editor     => 'geany',
+
+    icon_size       => 32,
+    skip_svg_icons  => 1,
+    force_svg_icons => 0,
+    force_icon_size => 0,
+
+    missing_icon    => 'gtk-missing-image',
+    gtk_rc_filename => "$home_dir/.gtkrc-2.0",
+
+    VERSION => $version,
              );
 
 sub dump_configuration {
@@ -250,6 +230,7 @@ sub dump_configuration {
     open my $config_fh, '>', $config_file
       or die "Can't open file '${config_file}' for write: $!";
     my $dumped_config = q{our $CONFIG = } . Data::Dump::dump(\%CONFIG);
+    $dumped_config =~ s/\Q$home_dir\E/\$ENV{HOME}/g;
     print $config_fh $config_documentation, $dumped_config;
     close $config_fh;
 }
@@ -269,7 +250,9 @@ if (not -e $schema_file) {
     }
 }
 
-require $schema_file;    # Load the configuration files
+# Load the configuration files
+require $schema_file;
+require $config_file;
 
 # Remove invalid user-defined keys
 my @valid_keys = grep exists $CONFIG{$_}, keys %$CONFIG;
@@ -280,21 +263,77 @@ if ($CONFIG{VERSION} != $version) {
     $CONFIG{VERSION} = $version;
 }
 
+# Regenerate the cache db if the config or schema file has been modified
+if ((-M $config_file) < (-M $cache_db) or (-M _) > (-M $schema_file)) {
+    print STDERR "** Regenerating the cache DB...\n";
+    unlink $cache_db;
+}
+
+#
+## Remove the overhead of loading some unneeded modules.
+#
+if ($with_icons) {
+    @INC{
+        qw(
+          strict.pm
+          warnings.pm
+          warnings/register.pm
+          )
+        } = ();
+}
+else {
+    @INC{
+        qw(
+          strict.pm
+          warnings.pm
+          warnings/register.pm
+          Tie/Hash.pm
+          Carp.pm
+          Exporter.pm
+          )
+        } = ();
+}
+
+require GDBM_File;
+tie my %cache_db, 'GDBM_File', $cache_db, &GDBM_File::GDBM_WRCREAT, 0640;
+
+{    # Regenerate the icon db if the GTKRC file has been modified
+    my $gtkrc_mtime = (stat $CONFIG{gtk_rc_filename})[9];
+
+    if (exists $cache_db{__GTKRC_MTIME__}) {
+        if ($cache_db{__GTKRC_MTIME__} != $gtkrc_mtime
+            or ($with_icons and not exists $cache_db{__WITH_ICONS__})) {
+            print STDERR "** Regenerating the cache DB...\n";
+            untie %cache_db;
+            unlink $cache_db;
+            tie %cache_db, 'GDBM_File', $cache_db, &GDBM_File::GDBM_WRCREAT, 0640;
+            $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
+            $cache_db{__WITH_ICONS__} = 1 if $with_icons;
+        }
+    }
+    else {
+        $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
+        $cache_db{__WITH_ICONS__} = 1 if $with_icons;
+    }
+}
+
 my $desk_obj = Linux::DesktopFiles->new(
     %{$CONFIG{'Linux::DesktopFiles'}},
 
-    home_dir => $home_dir,
-
     categories => [map $_->{cat}[0], grep exists $_->{cat}, @$SCHEMA],
-    keys_to_keep => [@{$CONFIG{name_keys}}, 'Exec', $icons ? 'Icon' : ()],
 
-    $icons
-    ? (
-       abs_icon_paths   => 1,
-       icon_db_filename => $icons_db,
-      )
-    : (),
+    keys_to_keep => [@{$CONFIG{name_keys}},
+                     'Exec',
+                     ($with_icons ? 'Icon' : ()),
+                     (
+                      defined($CONFIG{'Linux::DesktopFiles'}{skip_entry})
+                        && ref($CONFIG{'Linux::DesktopFiles'}{skip_entry}) eq 'ARRAY'
+                      ? (map { $_->{key} } @{$CONFIG{'Linux::DesktopFiles'}{skip_entry}})
+                      : ()
+                     ),
+                    ],
 
+    home_dir              => $home_dir,
     terminal              => $CONFIG{terminal},
     case_insensitive_cats => 1,
                                        );
@@ -316,9 +355,36 @@ HEADER
     }
 }
 
+sub get_icon_path {
+    my ($name) = @_;
+
+    state $gtk = do {
+        require Gtk2;
+        'Gtk2'->init;
+        'Gtk2';
+    };
+
+    state $theme = do {
+        "${gtk}::IconTheme"->get_default;
+    };
+
+    state $flags = "${gtk}::IconLookupFlags"->new(
+                                                  [($CONFIG{force_icon_size} ? 'force-size' : ()),
+                                                   ($CONFIG{skip_svg_icons}  ? 'no-svg'     : ()),
+                                                   ($CONFIG{force_svg_icons} ? 'force-svg'  : ()),
+                                                  ]
+                                                 );
+
+    my $icon_info = $theme->lookup_icon($name, $CONFIG{icon_size}, $flags);
+
+    defined($icon_info)
+      ? $icon_info->get_filename
+      : eval { $theme->lookup_icon($CONFIG{missing_icon}, $CONFIG{icon_size}, $flags)->get_filename };
+}
+
 sub check_icon {
-    (defined($_[0]) && (chr ord($_[0]) eq '/') ? $_[0] : $desk_obj->get_icon_path($_[0]))
-      || $desk_obj->get_icon_path($CONFIG{missing_icon});
+    substr(($_[0] // return ''), 0, 1) eq '/' && return $_[0];
+    $cache_db{$_[0]} //= get_icon_path($_[0]);
 }
 
 sub prepare_item {
@@ -326,7 +392,7 @@ sub prepare_item {
     my $name    = shift() =~ s/\)/\\)/gr;
     my $icon    = shift();
 
-    $icons
+    $with_icons
       ? <<"ITEM_WITH_ICON"
   [exec] ($name) {$command} <${\check_icon($icon)}>
 ITEM_WITH_ICON
@@ -336,7 +402,7 @@ ITEM
 }
 
 sub begin_category {
-    $icons
+    $with_icons
       ? <<"MENU_WITH_ICON"
 [submenu] ($_[0]) <${\check_icon($_[1])}>
 MENU_WITH_ICON
@@ -345,12 +411,44 @@ MENU_WITH_ICON
 MENU
 }
 
-my $categories = $desk_obj->parse_desktop_files();
+my %categories;
+foreach my $file ($desk_obj->get_desktop_files) {
+
+    my %info;
+    if (exists $cache_db{$file}) {
+        %info = split("\0\1\0", $cache_db{$file}, -1);
+    }
+
+    next if exists $info{__IGNORE__};
+
+    my $mtime = (stat $file)[9];
+    my $cache_ok = (%info and $info{__MTIME__} == $mtime);
+
+    if (not $cache_ok) {
+        $desk_obj->parse(\my %cats, $file);
+
+        my $fields = %cats ? (values %cats)[0][0] : {__IGNORE__ => 1};
+        %info = (%{$fields}, __MTIME__ => $mtime);
+
+        if ($with_icons) {
+            $info{Icon} = check_icon($info{Icon});
+        }
+
+        $info{__CATEGORIES__} = join(';', keys %cats);
+        $cache_db{$file} = join("\0\1\0", %info);
+
+        next if exists $info{__IGNORE__};
+    }
+
+    foreach my $category (split(/;/, $info{__CATEGORIES__})) {
+        push @{$categories{$category}}, \%info;
+    }
+}
 
 foreach my $schema (@$SCHEMA) {
     if (exists $schema->{cat}) {
-        exists($categories->{my $category = lc($schema->{cat}[0]) =~ tr/_a-z0-9/_/cr}) || next;
-        $generated_menu .= begin_category($schema->{cat}[1], ($icons ? $schema->{cat}[2] : ())) . join(
+        exists($categories{my $category = lc($schema->{cat}[0]) =~ tr/_a-z0-9/_/cr}) || next;
+        $generated_menu .= begin_category($schema->{cat}[1], ($with_icons ? $schema->{cat}[2] : ())) . join(
             q{},
             (
              map $_->[1],
@@ -367,8 +465,8 @@ foreach my $schema (@$SCHEMA) {
                      }
                  }
 
-                 prepare_item($exec, $name, $icons ? $_->{Icon} : ());
-               } @{$categories->{$category}}
+                 prepare_item($exec, $name, $with_icons ? $_->{Icon} : ());
+               } @{$categories{$category}}
             )
           )
           . "[end]\n";
@@ -379,10 +477,18 @@ foreach my $schema (@$SCHEMA) {
     elsif (exists $schema->{sep}) {
         $generated_menu .= "[separator]\n";
     }
+    elsif (exists $schema->{beg}) {
+        $generated_menu .= begin_category(@{$schema->{beg}});
+    }
     elsif (exists $schema->{begin_cat}) {
+        warn "[WARNING] <<begin_cat>> is deprecated: use <<beg>> instead!\n";
         $generated_menu .= begin_category(@{$schema->{begin_cat}});
     }
+    elsif (exists $schema->{end}) {
+        $generated_menu .= "[end]\n";
+    }
     elsif (exists $schema->{end_cat}) {
+        warn "[WARNING] <<end_cat>> is deprecated: use <<end>> instead!\n";
         $generated_menu .= "[end]\n";
     }
     elsif (exists $schema->{raw}) {
@@ -402,7 +508,7 @@ foreach my $schema (@$SCHEMA) {
     }
     elsif (exists $schema->{exit}) {
         my ($name, $icon) = @{$schema->{exit}};
-        $generated_menu .= $icons
+        $generated_menu .= $with_icons
           ? <<EXIT_WITH_ICON
 [exit] ($name) <${\check_icon($icon)}>
 EXIT_WITH_ICON
@@ -413,7 +519,7 @@ EXIT
     elsif (exists $schema->{regenerate}) {
         require Cwd;
         my $regenerate_exec = join(
-                                   q{ }, $^X, quotemeta(Cwd::abs_path($0)), ($icons ? '-i' : ()),
+                                   q{ }, $^X, quotemeta(Cwd::abs_path($0)), ($with_icons ? '-i' : ()),
                                    '-S' => quotemeta(Cwd::abs_path($schema_file)),
                                    '-C' => quotemeta(Cwd::abs_path($config_file)),
                                    '-o' => quotemeta(Cwd::abs_path($menu_file)),
