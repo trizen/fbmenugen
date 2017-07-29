@@ -23,9 +23,10 @@
 # License: GPLv3
 # Created on: 01 August 2010
 # Latest edit on: 28 July 2017
-# http://github.com/trizen/fbmenugen
+# https://github.com/trizen/fbmenugen
 
 use 5.014;
+use File::Spec qw();
 use Linux::DesktopFiles 0.08;
 
 my $pkgname = 'fbmenugen';
@@ -49,36 +50,31 @@ my $config_file = "$config_dir/config.pl";
 my $cache_db    = "$config_dir/cache.db";
 my $fluxbox_dir = "$home_dir/.fluxbox";
 my $menu_file   = "$fluxbox_dir/menu";
+my $icons_dir   = "$config_dir/icons";
 
 sub usage {
     print <<"HELP";
 usage: $0 [options]
 
-Options :
-    -i  : use icons in menus
+menu:
+    -i  : include icons
     -p  : pipe menu (prints to STDOUT)
 
-Other:
+other:
     -S <file>  : path to the schema.pl file
     -C <file>  : path to the config.pl file
     -o <file>  : menu file (default: ~/.fluxbox/menu)
     -u         : update the config file
     -d         : regenerate the cache DB
     -r         : regenerate the config file
+    -h         : print this message and exit
+    -v         : print version and exit
 
-Help:
-    -h  : print this message
-    -v  : print the version number
+example:
+    $0 -i           # generates a menu with icons
 
-Example:
-    ** Generate a simple menu
-        $0
-
-    ** Generate a menu with icons
-        $0 -i
-
-** Config file: $config_file
-** Schema file: $schema_file
+=> Config file: $config_file
+=> Schema file: $schema_file
 HELP
     exit 0;
 }
@@ -106,7 +102,6 @@ my $config_help = <<"HELP";
     | gtk_rc_filename     : Absolute path to the GTK configuration file.
     | missing_icon        : Use this icon for missing icons (default: gtk-missing-image)
     | icon_size           : Preferred size for icons. (default: 32)
-    | skip_svg_icons      : Ignore SVG icons. (default: 0)
     | force_svg_icons     : Use only SVG icons. (default: 0)
     | force_icon_size     : Use only icons at the preferred icon size, if possible. (default: 0)
 
@@ -170,7 +165,14 @@ if (@ARGV) {
 if (not -d $config_dir) {
     require File::Path;
     File::Path::make_path($config_dir)
-      or die "Can't create directory '${config_dir}': $!";
+      or die "$0: can't create configuration directory `$config_dir': $!\n";
+}
+
+if ($with_icons and not -d $icons_dir) {
+    unlink($cache_db);
+    require File::Path;
+    File::Path::make_path($icons_dir)
+      or warn "$0: can't create icon path `$icons_dir': $!\n";
 }
 
 my $config_documentation = <<"EOD";
@@ -215,7 +217,6 @@ my %CONFIG = (
     editor     => 'geany',
 
     icon_size       => 32,
-    skip_svg_icons  => 1,
     force_svg_icons => 0,
     force_icon_size => 0,
 
@@ -247,6 +248,12 @@ if (not -e $schema_file) {
     }
     else {
         die "$0: schema file `$schema_file' does not exists!\n";
+    }
+}
+
+foreach my $file (\$schema_file, \$config_file) {
+    if (not File::Spec->file_name_is_absolute($$file)) {
+        $$file = File::Spec->rel2abs($$file);
     }
 }
 
@@ -368,18 +375,31 @@ sub get_icon_path {
         "${gtk}::IconTheme"->get_default;
     };
 
+#<<<
     state $flags = "${gtk}::IconLookupFlags"->new(
-                                                  [($CONFIG{force_icon_size} ? 'force-size' : ()),
-                                                   ($CONFIG{skip_svg_icons}  ? 'no-svg'     : ()),
-                                                   ($CONFIG{force_svg_icons} ? 'force-svg'  : ()),
-                                                  ]
-                                                 );
+        [
+            ($CONFIG{force_icon_size} ? 'force-size' : ()),
+            ($CONFIG{force_svg_icons} ? 'force-svg'  : ()),
+        ]
+    );
+#>>>
 
-    my $icon_info = $theme->lookup_icon($name, $CONFIG{icon_size}, $flags);
+    foreach my $icon_name ($name, $CONFIG{missing_icon}) {
 
-    defined($icon_info)
-      ? $icon_info->get_filename
-      : eval { $theme->lookup_icon($CONFIG{missing_icon}, $CONFIG{icon_size}, $flags)->get_filename };
+#<<<
+        my $pixbuf = eval {
+            $theme->load_icon($icon_name, $CONFIG{icon_size}, $flags);
+        };
+#>>>
+
+        if (defined($pixbuf)) {
+            my $filename = "$icons_dir/$icon_name.png";
+            $pixbuf->save($filename, 'png');
+            return $filename;
+        }
+    }
+
+    return '';
 }
 
 sub check_icon {
