@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 28 July 2017
+# Latest edit on: 06 August 2017
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -231,7 +231,7 @@ sub dump_configuration {
     open my $config_fh, '>', $config_file
       or die "Can't open file '${config_file}' for write: $!";
     my $dumped_config = q{our $CONFIG = } . Data::Dump::dump(\%CONFIG);
-    $dumped_config =~ s/\Q$home_dir\E/\$ENV{HOME}/g;
+    $dumped_config =~ s/\Q$home_dir\E/\$ENV{HOME}/g if ($home_dir eq $ENV{HOME});
     print $config_fh $config_documentation, $dumped_config;
     close $config_fh;
 }
@@ -367,6 +367,7 @@ sub get_icon_path {
 
     state $gtk = do {
         require Gtk2;
+        require Digest::MD5;
         'Gtk2'->init;
         'Gtk2';
     };
@@ -388,23 +389,30 @@ sub get_icon_path {
 
 #<<<
         my $pixbuf = eval {
-            $theme->load_icon($icon_name, $CONFIG{icon_size}, $flags);
+            (substr($name, 0, 1) eq '/')
+            ? (substr($name, -4) eq '.xpm')
+                ? "${gtk}::Gdk::Pixbuf"->new_from_file($name)->scale_simple($CONFIG{icon_size}, $CONFIG{icon_size}, 'hyper')
+                : "${gtk}::Gdk::Pixbuf"->new_from_file_at_size($name, $CONFIG{icon_size}, $CONFIG{icon_size})
+            : $theme->load_icon($icon_name, $CONFIG{icon_size}, $flags);
         };
 #>>>
 
         if (defined($pixbuf)) {
-            my $filename = "$icons_dir/$icon_name.png";
-            $pixbuf->save($filename, 'png');
-            return $filename;
+            my $md5  = Digest::MD5::md5_hex($pixbuf->get_pixels);
+            my $path = "$icons_dir/$md5.png";
+            $pixbuf->save($path, 'png') if not -e $path;
+            return $path;
         }
     }
 
     return '';
 }
 
-sub check_icon {
-    substr(($_[0] // return ''), 0, 1) eq '/' && return $_[0];
-    $cache_db{$_[0]} //= get_icon_path($_[0]);
+{
+    my %fast_cache;
+    sub check_icon {
+        $fast_cache{$_[0] // return ''} //= ($cache_db{$_[0]} //= get_icon_path($_[0]));
+    }
 }
 
 sub prepare_item {
