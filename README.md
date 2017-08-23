@@ -1,4 +1,5 @@
-# fbmenugen
+fbmenugen
+================
 
 Fluxbox menu generator (with support for icons)
 
@@ -31,3 +32,5 @@ Example:
 ** Config file: ~/.config/fbmenugen/config.pl
 ** Schema file: ~/.config/fbmenugen/schema.pl
 ```
+
+Installation: [INSTALL.md](INSTALL.md)
