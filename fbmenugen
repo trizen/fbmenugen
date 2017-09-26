@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 06 August 2017
+# Latest edit on: 26 September 2017
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -230,7 +230,7 @@ sub dump_configuration {
     require Data::Dump;
     open my $config_fh, '>', $config_file
       or die "Can't open file '${config_file}' for write: $!";
-    my $dumped_config = q{our $CONFIG = } . Data::Dump::dump(\%CONFIG);
+    my $dumped_config = q{our $CONFIG = } . Data::Dump::dump(\%CONFIG) . "\n";
     $dumped_config =~ s/\Q$home_dir\E/\$ENV{HOME}/g if ($home_dir eq $ENV{HOME});
     print $config_fh $config_documentation, $dumped_config;
     close $config_fh;
@@ -340,7 +340,6 @@ my $desk_obj = Linux::DesktopFiles->new(
                      ),
                     ],
 
-    home_dir              => $home_dir,
     terminal              => $CONFIG{terminal},
     case_insensitive_cats => 1,
                                        );
@@ -410,6 +409,7 @@ sub get_icon_path {
 
 {
     my %fast_cache;
+
     sub check_icon {
         $fast_cache{$_[0] // return ''} //= ($cache_db{$_[0]} //= get_icon_path($_[0]));
     }
@@ -455,8 +455,10 @@ foreach my $file ($desk_obj->get_desktop_files) {
     if (not $cache_ok) {
         $desk_obj->parse(\my %cats, $file);
 
-        my $fields = %cats ? (values %cats)[0][0] : {__IGNORE__ => 1};
-        %info = (%{$fields}, __MTIME__ => $mtime);
+        %info = %cats ? (%{(values %cats)[0][0]}, __MTIME__ => $mtime) : do {
+            $cache_db{$file} = join("\0\1\0", __IGNORE__ => 1);
+            next;
+        };
 
         if ($with_icons) {
             $info{Icon} = check_icon($info{Icon});
@@ -464,8 +466,6 @@ foreach my $file ($desk_obj->get_desktop_files) {
 
         $info{__CATEGORIES__} = join(';', keys %cats);
         $cache_db{$file} = join("\0\1\0", %info);
-
-        next if exists $info{__IGNORE__};
     }
 
     foreach my $category (split(/;/, $info{__CATEGORIES__})) {
