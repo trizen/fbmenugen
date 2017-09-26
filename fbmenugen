@@ -86,7 +86,7 @@ my $config_help = <<"HELP";
                             Name is from the last slash to the end. (filename.desktop)
                             Example: qr/^(?:gimp|xterm)\\b/,    # skips 'gimp' and 'xterm'
 
-    | skip_entry          : Skip a destkop file if the value from a given key matches the regex.
+    | skip_entry          : Skip a desktop file if the value from a given key matches the regex.
                             Example: [
                                 {key => 'Name', re => qr/(?:about|terminal)/i},
                                 {key => 'Exec', re => qr/^xterm/},
@@ -106,7 +106,7 @@ my $config_help = <<"HELP";
     | force_icon_size     : Use only icons at the preferred icon size, if possible. (default: 0)
 
 || KEYS
-    | name_keys           : Valid keys for the item names.
+    | name_keys           : Valid keys for application name.
                             Example: ['Name[fr]', 'GenericName[fr]', 'Name'],   # french menu
 
 || PATHS
