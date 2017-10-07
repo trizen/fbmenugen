@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 26 September 2017
+# Latest edit on: 07 October 2017
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -30,7 +30,7 @@ use File::Spec qw();
 use Linux::DesktopFiles 0.08;
 
 my $pkgname = 'fbmenugen';
-my $version = '0.80';
+my $version = '0.81';
 
 my ($with_icons, $pipe, $reconfigure, $update_config);
 
@@ -83,13 +83,14 @@ my $config_help = <<"HELP";
 
 || FILTERING
     | skip_filename_re    : Skip a .desktop file if its name matches the regex.
-                            Name is from the last slash to the end. (filename.desktop)
+                            Name is from the last slash to the end. (e.g.: name.desktop)
                             Example: qr/^(?:gimp|xterm)\\b/,    # skips 'gimp' and 'xterm'
 
     | skip_entry          : Skip a desktop file if the value from a given key matches the regex.
                             Example: [
-                                {key => 'Name', re => qr/(?:about|terminal)/i},
-                                {key => 'Exec', re => qr/^xterm/},
+                                {key => 'Name',       re => qr/(?:about|terminal)/i},
+                                {key => 'Exec',       re => qr/^xterm/},
+                                {key => 'OnlyShowIn', re => qr/XFCE/},
                             ],
 
     | substitutions       : Substitute, by using a regex, in the values of the desktop files.
@@ -102,8 +103,8 @@ my $config_help = <<"HELP";
     | gtk_rc_filename     : Absolute path to the GTK configuration file.
     | missing_icon        : Use this icon for missing icons (default: gtk-missing-image)
     | icon_size           : Preferred size for icons. (default: 32)
-    | force_svg_icons     : Use only SVG icons. (default: 0)
-    | force_icon_size     : Use only icons at the preferred icon size, if possible. (default: 0)
+    | generic_fallback    : Try to shorten icon name at '-' characters before looking at inherited themes. (default: 0)
+    | force_icon_size     : Always get the icon scaled to the requested size. (default: 0)
 
 || KEYS
     | name_keys           : Valid keys for application name.
@@ -216,9 +217,9 @@ my %CONFIG = (
     terminal   => 'xterm',
     editor     => 'geany',
 
-    icon_size       => 32,
-    force_svg_icons => 0,
-    force_icon_size => 0,
+    icon_size        => 32,
+    force_icon_size  => 0,
+    generic_fallback => 0,
 
     missing_icon    => 'gtk-missing-image',
     gtk_rc_filename => "$home_dir/.gtkrc-2.0",
@@ -270,12 +271,6 @@ if ($CONFIG{VERSION} != $version) {
     $CONFIG{VERSION} = $version;
 }
 
-# Regenerate the cache db if the config or schema file has been modified
-if ((-M $config_file) < (-M $cache_db) or (-M _) > (-M $schema_file)) {
-    print STDERR "** Regenerating the cache DB...\n";
-    unlink $cache_db;
-}
-
 #
 ## Remove the overhead of loading some unneeded modules.
 #
@@ -299,29 +294,6 @@ else {
           Exporter.pm
           )
         } = ();
-}
-
-require GDBM_File;
-tie my %cache_db, 'GDBM_File', $cache_db, &GDBM_File::GDBM_WRCREAT, 0640;
-
-{    # Regenerate the icon db if the GTKRC file has been modified
-    my $gtkrc_mtime = (stat $CONFIG{gtk_rc_filename})[9];
-
-    if (exists $cache_db{__GTKRC_MTIME__}) {
-        if ($cache_db{__GTKRC_MTIME__} != $gtkrc_mtime
-            or ($with_icons and not exists $cache_db{__WITH_ICONS__})) {
-            print STDERR "** Regenerating the cache DB...\n";
-            untie %cache_db;
-            unlink $cache_db;
-            tie %cache_db, 'GDBM_File', $cache_db, &GDBM_File::GDBM_WRCREAT, 0640;
-            $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
-            $cache_db{__WITH_ICONS__} = 1 if $with_icons;
-        }
-    }
-    else {
-        $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
-        $cache_db{__WITH_ICONS__} = 1 if $with_icons;
-    }
 }
 
 my $desk_obj = Linux::DesktopFiles->new(
@@ -378,8 +350,8 @@ sub get_icon_path {
 #<<<
     state $flags = "${gtk}::IconLookupFlags"->new(
         [
-            ($CONFIG{force_icon_size} ? 'force-size' : ()),
-            ($CONFIG{force_svg_icons} ? 'force-svg'  : ()),
+            ($CONFIG{force_icon_size}  ? 'force-size'        : ()),
+            ($CONFIG{generic_fallback} ? 'generic-fallback'  : ()),
         ]
     );
 #>>>
@@ -405,6 +377,34 @@ sub get_icon_path {
     }
 
     return '';
+}
+
+my $db_clean = 0;
+
+# Regenerate the cache db if the config or schema file has been modified
+if ((-M $config_file) < (-M $cache_db) or (-M _) > (-M $schema_file)) {
+    print STDERR "** Regenerating the cache DB...\n";
+    unlink $cache_db;
+    $db_clean = 1;
+}
+
+require GDBM_File;
+tie my %cache_db, 'GDBM_File', $cache_db, &GDBM_File::GDBM_WRCREAT, 0640;
+
+# Regenerate the icon db if the GTKRC file has been modified
+if ($with_icons) {
+    my $gtkrc_mtime = (stat $CONFIG{gtk_rc_filename})[9];
+
+    if ($db_clean) {
+        $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
+    }
+    elsif (!exists($cache_db{__GTKRC_MTIME__}) or $cache_db{__GTKRC_MTIME__} != $gtkrc_mtime) {
+        print STDERR "** Regenerating the cache DB...\n";
+        untie %cache_db;
+        unlink $cache_db;
+        tie %cache_db, 'GDBM_File', $cache_db, &GDBM_File::GDBM_WRCREAT, 0640;
+        $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
+    }
 }
 
 {
@@ -483,6 +483,7 @@ foreach my $schema (@$SCHEMA) {
              sort { $a->[0] cmp $b->[0] }
                map [lc($_) => $_],
              map {
+
                  my $name;
                  my $exec = $_->{Exec};
 

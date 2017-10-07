@@ -54,7 +54,7 @@ our $SCHEMA = [
     #{end => undef},
 
     ## Custom advanced settings
-    {sep       => undef},
+    {sep => undef},
     {beg => ['Advanced Settings', 'applications-engineering']},
 
       # Configuration files
@@ -72,11 +72,11 @@ our $SCHEMA = [
         {item => ['fbmenugen',    'Generate a menu without icons',  'accessories-text-editor']},
         {sep  => undef},
 
-        {item => ['fbmenugen -d', 'Refresh icon set', 'view-refresh']},
+        {item => ['fbmenugen -d', 'Refresh cache', 'view-refresh']},
       {end => undef},
 
       # Fluxbox category
-      {fluxbox    => ['Fluxbox', 'preferences-desktop']},
+      {fluxbox => ['Fluxbox', 'preferences-desktop']},
     {end => undef},
 
     {sep => undef},
