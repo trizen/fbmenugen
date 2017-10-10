@@ -137,6 +137,7 @@ if (@ARGV) {
         }
         elsif ($arg eq '-d') {
             unlink $cache_db;
+            exit 0;
         }
         elsif ($arg eq '-u') {
             $update_config = 1;
