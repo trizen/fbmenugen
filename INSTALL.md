@@ -5,7 +5,10 @@
     - perl>=5.14.0
     - gtk2-perl ([Gtk2](https://metacpan.org/pod/Gtk2))
     - perl-data-dump ([Data::Dump](https://metacpan.org/pod/Data::Dump))
-    - perl-linux-desktopfiles>=0.09 ([Linux::DesktopFiles](https://metacpan.org/pod/Linux::DesktopFiles))
+    - perl-linux-desktopfiles>=0.25 ([Linux::DesktopFiles](https://metacpan.org/pod/Linux::DesktopFiles))
+
+* Optional dependencies:
+    - perl-file-desktopentry ([File::DesktopEntry](https://metacpan.org/pod/File::DesktopEntry))
 
 ### Installation process:
 
@@ -16,6 +19,10 @@
 
 - to generate a menu with icons, execute: `fbmenugen -i`
 - to generate a menu without icons, execute: `fbmenugen`
+
+### Locale support:
+
+- If [File::DesktopEntry](https://metacpan.org/pod/File::DesktopEntry) is installed, `fbmenugen` will use it to provide locale support.
 
 ### Customizing:
 

@@ -22,17 +22,17 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 07 October 2017
+# Latest edit on: 22 October 2017
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
 use File::Spec qw();
-use Linux::DesktopFiles 0.08;
+use Linux::DesktopFiles 0.25;
 
 my $pkgname = 'fbmenugen';
 my $version = '0.81';
 
-my ($with_icons, $pipe, $reconfigure, $update_config);
+my ($with_icons, $db_clean, $create_menu, $pipe, $reconfigure, $update_config);
 
 our ($CONFIG, $SCHEMA);
 
@@ -57,6 +57,7 @@ sub usage {
 usage: $0 [options]
 
 menu:
+    -g  : generate a new menu
     -i  : include icons
     -p  : pipe menu (prints to STDOUT)
 
@@ -71,7 +72,7 @@ other:
     -v         : print version and exit
 
 example:
-    $0 -i           # generates a menu with icons
+    $0 -g -i           # generates a menu with icons
 
 => Config file: $config_file
 => Schema file: $schema_file
@@ -127,7 +128,11 @@ HELP
 if (@ARGV) {
     while (defined(my $arg = shift @ARGV)) {
         if ($arg eq '-i') {
-            $with_icons = 1;
+            $with_icons  = 1;
+            $create_menu = 1;
+        }
+        elsif ($arg eq '-g') {
+            $create_menu = 1;
         }
         elsif ($arg eq '-r') {
             $reconfigure = 1;
@@ -136,8 +141,8 @@ if (@ARGV) {
             $pipe = 1;
         }
         elsif ($arg eq '-d') {
+            $db_clean = 1;
             unlink $cache_db;
-            exit 0;
         }
         elsif ($arg eq '-u') {
             $update_config = 1;
@@ -272,42 +277,15 @@ if ($CONFIG{VERSION} != $version) {
     $CONFIG{VERSION} = $version;
 }
 
-#
-## Remove the overhead of loading some unneeded modules.
-#
-if ($with_icons) {
-    @INC{
-        qw(
-          strict.pm
-          warnings.pm
-          warnings/register.pm
-          )
-        } = ();
-}
-else {
-    @INC{
-        qw(
-          strict.pm
-          warnings.pm
-          warnings/register.pm
-          Tie/Hash.pm
-          Carp.pm
-          Exporter.pm
-          )
-        } = ();
-}
-
 my $desk_obj = Linux::DesktopFiles->new(
     %{$CONFIG{'Linux::DesktopFiles'}},
 
-    categories => [map $_->{cat}[0], grep exists $_->{cat}, @$SCHEMA],
+    categories => [map { exists($_->{cat}) ? $_->{cat}[0] : () } @$SCHEMA],
 
-    keys_to_keep => [@{$CONFIG{name_keys}},
-                     'Exec',
+    keys_to_keep => ['Name', 'Exec',
                      ($with_icons ? 'Icon' : ()),
                      (
-                      defined($CONFIG{'Linux::DesktopFiles'}{skip_entry})
-                        && ref($CONFIG{'Linux::DesktopFiles'}{skip_entry}) eq 'ARRAY'
+                      ref($CONFIG{'Linux::DesktopFiles'}{skip_entry}) eq 'ARRAY'
                       ? (map { $_->{key} } @{$CONFIG{'Linux::DesktopFiles'}{skip_entry}})
                       : ()
                      ),
@@ -380,11 +358,9 @@ sub get_icon_path {
     return '';
 }
 
-my $db_clean = 0;
-
 # Regenerate the cache db if the config or schema file has been modified
-if ((-M $config_file) < (-M $cache_db) or (-M _) > (-M $schema_file)) {
-    print STDERR "** Regenerating the cache DB...\n";
+if (!$db_clean and ((-M $config_file) < (-M $cache_db) or (-M _) > (-M $schema_file))) {
+    print STDERR "[*] Regenerating the cache DB...\n";
     unlink $cache_db;
     $db_clean = 1;
 }
@@ -400,7 +376,7 @@ if ($with_icons) {
         $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
     }
     elsif (!exists($cache_db{__GTKRC_MTIME__}) or $cache_db{__GTKRC_MTIME__} != $gtkrc_mtime) {
-        print STDERR "** Regenerating the cache DB...\n";
+        print STDERR "[*] Regenerating the cache DB...\n";
         untie %cache_db;
         unlink $cache_db;
         tie %cache_db, 'GDBM_File', $cache_db, &GDBM_File::GDBM_WRCREAT, 0640;
@@ -454,18 +430,35 @@ foreach my $file ($desk_obj->get_desktop_files) {
     my $cache_ok = (%info and $info{__MTIME__} == $mtime);
 
     if (not $cache_ok) {
-        $desk_obj->parse(\my %cats, $file);
 
-        %info = %cats ? (%{(values %cats)[0][0]}, __MTIME__ => $mtime) : do {
+        my $entry = $desk_obj->parse_desktop_file($file) // do {
             $cache_db{$file} = join("\0\1\0", __IGNORE__ => 1);
             next;
         };
 
-        if ($with_icons) {
-            $info{Icon} = check_icon($info{Icon});
-        }
+#<<<
+        %info = (
+            Name => $entry->{Name},
+            Exec => $entry->{Exec},
 
-        $info{__CATEGORIES__} = join(';', keys %cats);
+            (
+             $with_icons
+             ? (Icon => $entry->{Icon})
+             : ()
+            ),
+
+            __CATEGORIES__ => join(';', @{$entry->{Categories}}),
+            __MTIME__      => $mtime,
+        );
+#>>>
+
+        eval {
+            require Encode;
+            require File::DesktopEntry;
+            my $fde = File::DesktopEntry->new($file);
+            $info{Name} = Encode::encode_utf8($fde->get('Name'));
+        };
+
         $cache_db{$file} = join("\0\1\0", %info);
     }
 
@@ -477,28 +470,16 @@ foreach my $file ($desk_obj->get_desktop_files) {
 foreach my $schema (@$SCHEMA) {
     if (exists $schema->{cat}) {
         exists($categories{my $category = lc($schema->{cat}[0]) =~ tr/_a-z0-9/_/cr}) || next;
-        $generated_menu .= begin_category($schema->{cat}[1], ($with_icons ? $schema->{cat}[2] : ())) . join(
-            q{},
-            (
-             map $_->[1],
-             sort { $a->[0] cmp $b->[0] }
-               map [lc($_) => $_],
-             map {
-
-                 my $name;
-                 my $exec = $_->{Exec};
-
-                 foreach my $key (@{$CONFIG{name_keys}}) {
-                     if ($_->{$key}) {
-                         $name = $_->{$key};
-                         last;
-                     }
-                 }
-
-                 prepare_item($exec, $name, $with_icons ? $_->{Icon} : ());
-               } @{$categories{$category}}
-            )
-          )
+        $generated_menu .= begin_category($schema->{cat}[1], ($with_icons ? $schema->{cat}[2] : ()))
+          . join(
+                 q{},
+                 (
+                  map $_->[1],
+                  sort { $a->[0] cmp $b->[0] }
+                  map [lc($_) => $_],
+                  map { prepare_item($_->{Exec}, $_->{Name}, $with_icons ? $_->{Icon} : ()) } @{$categories{$category}}
+                 )
+                )
           . "[end]\n";
     }
     elsif (exists $schema->{item}) {
@@ -592,11 +573,22 @@ FOOTER
 
 $generated_menu .= "\n[endencoding]\n[end]\n";
 
-my $out_fh = $pipe ? \*STDOUT : do {
-    open my $fh, '>', $menu_file
-      or die "Can't open '${menu_file}' for write: $!";
-    $fh;
-};
+if ($create_menu) {
 
-print $out_fh $generated_menu;
+    my $out_fh = $pipe ? \*STDOUT : do {
+        open my $fh, '>', $menu_file
+          or die "Can't open '${menu_file}' for write: $!";
+        $fh;
+    };
+
+    print $out_fh $generated_menu;
+
+    if (!$pipe) {
+        print STDERR "[*] A new menu has been successfully generated!\n";
+    }
+}
+else {
+    print STDERR "[!] To generate a new menu, use `-g` or `-i` options.\n";
+}
+
 dump_configuration() if $update_config;
