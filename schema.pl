@@ -69,7 +69,7 @@ our $SCHEMA = [
 
         {sep  => undef},
         {item => ['fbmenugen -i', 'Generate a menu with icons',     'accessories-text-editor']},
-        {item => ['fbmenugen',    'Generate a menu without icons',  'accessories-text-editor']},
+        {item => ['fbmenugen -g', 'Generate a menu without icons',  'accessories-text-editor']},
         {sep  => undef},
 
         {item => ['fbmenugen -d', 'Refresh cache', 'view-refresh']},
