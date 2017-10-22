@@ -107,10 +107,6 @@ my $config_help = <<"HELP";
     | generic_fallback    : Try to shorten icon name at '-' characters before looking at inherited themes. (default: 0)
     | force_icon_size     : Always get the icon scaled to the requested size. (default: 0)
 
-|| KEYS
-    | name_keys           : Valid keys for application name.
-                            Example: ['Name[fr]', 'GenericName[fr]', 'Name'],   # french menu
-
 || PATHS
     | desktop_files_paths   : Absolute paths which contain .desktop files.
                               Example: [
@@ -218,7 +214,6 @@ my %CONFIG = (
 #>>>
     },
 
-    name_keys  => ['Name'],
     menu_title => 'Fluxbox',
     terminal   => 'xterm',
     editor     => 'geany',
