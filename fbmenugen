@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2010-2017 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
+# Copyright (C) 2010-2018 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 22 October 2017
+# Latest edit on: 07 July 2018
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -96,7 +96,7 @@ my $config_help = <<"HELP";
 
     | substitutions       : Substitute, by using a regex, in the values of the desktop files.
                             Example: [
-                                {key => 'Exec', re => qr/xterm/, value => 'sakura', global => 1},
+                                {key => 'Exec', re => qr/xterm/, value => 'terminator', global => 1},
                             ],
 
 || ICON SETTINGS
@@ -334,10 +334,10 @@ sub get_icon_path {
 
 #<<<
         my $pixbuf = eval {
-            (substr($name, 0, 1) eq '/')
-            ? (substr($name, -4) eq '.xpm')
-                ? "${gtk}::Gdk::Pixbuf"->new_from_file($name)->scale_simple($CONFIG{icon_size}, $CONFIG{icon_size}, 'hyper')
-                : "${gtk}::Gdk::Pixbuf"->new_from_file_at_size($name, $CONFIG{icon_size}, $CONFIG{icon_size})
+            (substr($icon_name, 0, 1) eq '/')
+            ? (substr($icon_name, -4) eq '.xpm')
+                ? "${gtk}::Gdk::Pixbuf"->new_from_file($icon_name)->scale_simple($CONFIG{icon_size}, $CONFIG{icon_size}, 'hyper')
+                : "${gtk}::Gdk::Pixbuf"->new_from_file_at_size($icon_name, $CONFIG{icon_size}, $CONFIG{icon_size})
             : $theme->load_icon($icon_name, $CONFIG{icon_size}, $flags);
         };
 #>>>
