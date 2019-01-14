@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2010-2018 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
+# Copyright (C) 2010-2019 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 07 July 2018
+# Latest edit on: 14 January 2019
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -406,7 +406,7 @@ sub begin_category {
       ? <<"MENU_WITH_ICON"
 [submenu] ($_[0]) <${\check_icon($_[1])}>
 MENU_WITH_ICON
-      : <<"MENU"
+      : <<"MENU";
 [submenu] ($_[0])
 MENU
 }
@@ -421,7 +421,7 @@ foreach my $file ($desk_obj->get_desktop_files) {
 
     next if exists $info{__IGNORE__};
 
-    my $mtime = (stat $file)[9];
+    my $mtime    = (stat $file)[9];
     my $cache_ok = (%info and $info{__MTIME__} == $mtime);
 
     if (not $cache_ok) {
@@ -450,7 +450,7 @@ foreach my $file ($desk_obj->get_desktop_files) {
         eval {
             require Encode;
             require File::DesktopEntry;
-            $info{Name} = Encode::encode_utf8(File::DesktopEntry->new($file)->get('Name'));
+            $info{Name} = Encode::encode_utf8(File::DesktopEntry->new($file)->get('Name') // '');
         } if $CONFIG{locale_support};
 
         $cache_db{$file} = join("\0\1\0", %info);
