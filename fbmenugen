@@ -30,7 +30,7 @@ use File::Spec qw();
 use Linux::DesktopFiles 0.25;
 
 my $pkgname = 'fbmenugen';
-my $version = '0.82';
+my $version = '0.83';
 
 my ($with_icons, $db_clean, $create_menu, $pipe, $reconfigure, $update_config);
 
