@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2010-2019 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
+# Copyright (C) 2010-2020 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,17 +22,17 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 14 January 2019
+# Latest edit on: 21 January 2020
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
-use File::Spec qw();
+use File::Spec;
 use Linux::DesktopFiles 0.25;
 
 my $pkgname = 'fbmenugen';
-my $version = '0.83';
+my $version = '0.84';
 
-my ($with_icons, $db_clean, $create_menu, $pipe, $reconfigure, $update_config);
+my ($with_icons, $db_clean, $create_menu, $pipe, $reload_config, $update_config);
 
 our ($CONFIG, $SCHEMA);
 
@@ -61,13 +61,14 @@ menu:
     -i  : include icons
     -p  : pipe menu (prints to STDOUT)
 
-other:
-    -S <file>  : path to the schema.pl file
-    -C <file>  : path to the config.pl file
-    -o <file>  : menu file (default: ~/.fluxbox/menu)
+misc:
     -u         : update the config file
-    -d         : regenerate the cache DB
-    -r         : regenerate the config file
+    -d         : regenerate the cache file
+    -S <file>  : absolute path to the schema.pl file
+    -C <file>  : absolute path to the config.pl file
+    -o <file>  : menu file (default: ~/.fluxbox/menu)
+
+info:
     -h         : print this message and exit
     -v         : print version and exit
 
@@ -94,12 +95,13 @@ my $config_help = <<"HELP";
                                 {key => 'OnlyShowIn', re => qr/XFCE/},
                             ],
 
-    | substitutions       : Substitute, by using a regex, in the values of the desktop files.
+    | substitutions       : Substitute, by using a regex, in the values from the desktop files.
                             Example: [
-                                {key => 'Exec', re => qr/xterm/, value => 'terminator', global => 1},
+                                {key => 'Exec', re => qr/xterm/, value => 'tilix', global => 1},
                             ],
 
 || ICON SETTINGS
+    | use_gtk3            : Use the Gtk3 library for resolving the icon-paths. (default: 0)
     | gtk_rc_filename     : Absolute path to the GTK configuration file.
     | missing_icon        : Use this icon for missing icons (default: gtk-missing-image)
     | icon_size           : Preferred size for icons. (default: 32)
@@ -129,9 +131,6 @@ if (@ARGV) {
         elsif ($arg eq '-g') {
             $create_menu = 1;
         }
-        elsif ($arg eq '-r') {
-            $reconfigure = 1;
-        }
         elsif ($arg eq '-p') {
             $pipe = 1;
         }
@@ -153,13 +152,14 @@ if (@ARGV) {
             $schema_file = shift(@ARGV) // die "$0: option `-S' requires an argument!\n";
         }
         elsif ($arg eq '-C') {
-            $config_file = shift(@ARGV) // die "$0: options `-C' requires an argument!\n";
+            $reload_config = 1;
+            $config_file   = shift(@ARGV) // die "$0: options `-C' requires an argument!\n";
         }
         elsif ($arg eq '-h') {
             usage();
         }
         else {
-            die "$0: unknown option: `$arg'\n";
+            die "$0: option `$arg' is invalid!\n";
         }
     }
 }
@@ -221,6 +221,7 @@ my %CONFIG = (
     force_icon_size  => 0,
     generic_fallback => 0,
     locale_support   => 1,
+    use_gtk3         => 0,
 
     missing_icon    => 'gtk-missing-image',
     gtk_rc_filename => "$home_dir/.gtkrc-2.0",
@@ -238,7 +239,7 @@ sub dump_configuration {
     close $config_fh;
 }
 
-if (not -e $config_file or $reconfigure) {
+if (not -e $config_file) {
     dump_configuration();
 }
 
@@ -261,15 +262,15 @@ foreach my $file (\$schema_file, \$config_file) {
 
 # Load the configuration files
 require $schema_file;
-require $config_file;
+require $config_file if $reload_config;
 
 # Remove invalid user-defined keys
 my @valid_keys = grep exists $CONFIG{$_}, keys %$CONFIG;
 @CONFIG{@valid_keys} = @{$CONFIG}{@valid_keys};
 
 if ($CONFIG{VERSION} != $version) {
-    $update_config = 1;
     $CONFIG{VERSION} = $version;
+    dump_configuration();
 }
 
 my $desk_obj = Linux::DesktopFiles->new(
@@ -311,15 +312,26 @@ sub get_icon_path {
     my ($name) = @_;
 
     state $gtk = do {
-        require Gtk2;
+
         require Digest::MD5;
-        'Gtk2'->init;
-        'Gtk2';
+
+        $CONFIG{use_gtk3}
+          ? do {
+            eval "use Gtk3";
+            'Gtk3'->init;
+            'Gtk3';
+          }
+          : do {
+            require Gtk2;
+            'Gtk2'->init;
+            'Gtk2';
+          };
     };
 
-    state $theme = do {
-        "${gtk}::IconTheme"->get_default;
-    };
+    state $theme =
+      ($gtk eq 'Gtk2')
+      ? Gtk2::IconTheme->get_default
+      : Gtk3::IconTheme::get_default();
 
 #<<<
     state $flags = "${gtk}::IconLookupFlags"->new(
@@ -370,12 +382,15 @@ if ($with_icons) {
     if ($db_clean) {
         $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
     }
-    elsif (!exists($cache_db{__GTKRC_MTIME__}) or $cache_db{__GTKRC_MTIME__} != $gtkrc_mtime) {
-        print STDERR "[*] Regenerating the cache DB...\n";
-        untie %cache_db;
-        unlink $cache_db;
-        tie %cache_db, 'GDBM_File', $cache_db, &GDBM_File::GDBM_WRCREAT, 0640;
-        $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
+    else {
+        my $old_mtime = $cache_db{__GTKRC_MTIME__} // -1;
+        if ($old_mtime != $gtkrc_mtime) {
+            print STDERR "[*] Regenerating the cache DB...\n";
+            untie %cache_db;
+            unlink $cache_db;
+            tie %cache_db, 'GDBM_File', $cache_db, &GDBM_File::GDBM_WRCREAT, 0640;
+            $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
+        }
     }
 }
 
@@ -414,15 +429,16 @@ MENU
 my %categories;
 foreach my $file ($desk_obj->get_desktop_files) {
 
-    my %info;
-    if (exists $cache_db{$file}) {
-        %info = split("\0\1\0", $cache_db{$file}, -1);
-    }
+    my %info = split("\0\1\0", $cache_db{$file} // '', -1);
 
     next if exists $info{__IGNORE__};
 
     my $mtime    = (stat $file)[9];
     my $cache_ok = (%info and $info{__MTIME__} == $mtime);
+
+    if ($with_icons and $cache_ok and not exists $info{Icon}) {
+        $cache_ok = 0;
+    }
 
     if (not $cache_ok) {
 
@@ -486,14 +502,12 @@ foreach my $schema (@$SCHEMA) {
         $generated_menu .= begin_category(@{$schema->{beg}});
     }
     elsif (exists $schema->{begin_cat}) {
-        warn "[WARNING] <<begin_cat>> is deprecated: use <<beg>> instead!\n";
         $generated_menu .= begin_category(@{$schema->{begin_cat}});
     }
     elsif (exists $schema->{end}) {
         $generated_menu .= "[end]\n";
     }
     elsif (exists $schema->{end_cat}) {
-        warn "[WARNING] <<end_cat>> is deprecated: use <<end>> instead!\n";
         $generated_menu .= "[end]\n";
     }
     elsif (exists $schema->{raw}) {
