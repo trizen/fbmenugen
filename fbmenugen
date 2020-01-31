@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 21 January 2020
+# Latest edit on: 31 January 2020
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -101,7 +101,7 @@ my $config_help = <<"HELP";
                             ],
 
 || ICON SETTINGS
-    | use_gtk3            : Use the Gtk3 library for resolving the icon-paths. (default: 0)
+    | use_gtk3            : Use the Gtk3 library for resolving the icon paths. (default: 0)
     | gtk_rc_filename     : Absolute path to the GTK configuration file.
     | missing_icon        : Use this icon for missing icons (default: gtk-missing-image)
     | icon_size           : Preferred size for icons. (default: 32)
@@ -136,6 +136,7 @@ if (@ARGV) {
         }
         elsif ($arg eq '-d') {
             $db_clean = 1;
+            print STDERR "[*] Regenerating the cache DB...\n";
             unlink $cache_db;
         }
         elsif ($arg eq '-u') {
@@ -146,14 +147,14 @@ if (@ARGV) {
             exit 0;
         }
         elsif ($arg eq '-o') {
-            $menu_file = shift(@ARGV) // die "$0: option `-o' requires an argument!\n";
+            $menu_file = shift(@ARGV) // die "$0: option '-o' requires an argument!\n";
         }
         elsif ($arg eq '-S') {
-            $schema_file = shift(@ARGV) // die "$0: option `-S' requires an argument!\n";
+            $schema_file = shift(@ARGV) // die "$0: option '-S' requires an argument!\n";
         }
         elsif ($arg eq '-C') {
             $reload_config = 1;
-            $config_file   = shift(@ARGV) // die "$0: options `-C' requires an argument!\n";
+            $config_file   = shift(@ARGV) // die "$0: options '-C' requires an argument!\n";
         }
         elsif ($arg eq '-h') {
             usage();
@@ -213,18 +214,17 @@ my %CONFIG = (
 #>>>
     },
 
-    menu_title => 'Fluxbox',
-    terminal   => 'xterm',
-    editor     => 'geany',
+    menu_title      => 'Fluxbox',
+    terminal        => 'xterm',
+    editor          => 'geany',
+    missing_icon    => 'gtk-missing-image',
+    gtk_rc_filename => "$home_dir/.gtkrc-2.0",
 
     icon_size        => 32,
     force_icon_size  => 0,
     generic_fallback => 0,
     locale_support   => 1,
     use_gtk3         => 0,
-
-    missing_icon    => 'gtk-missing-image',
-    gtk_rc_filename => "$home_dir/.gtkrc-2.0",
 
     VERSION => $version,
              );
@@ -247,7 +247,7 @@ if (not -e $schema_file) {
     if (-e (my $etc_schema_file = "/etc/xdg/$pkgname/schema.pl")) {
         require File::Copy;
         File::Copy::copy($etc_schema_file, $schema_file)
-          or die "$0: can't copy file `$etc_schema_file' to `$schema_file': $!\n";
+          or warn "$0: can't copy file `$etc_schema_file' to `$schema_file': $!\n";
     }
     else {
         die "$0: schema file `$schema_file' does not exists!\n";
@@ -405,7 +405,7 @@ if ($with_icons) {
 sub prepare_item {
     my $command = shift() =~ s/\}/\\}/gr;
     my $name    = shift() =~ s/\)/\\)/gr;
-    my $icon    = shift();
+    my $icon = shift() || $CONFIG{missing_icon};
 
     $with_icons
       ? <<"ITEM_WITH_ICON"
@@ -596,7 +596,7 @@ if ($create_menu) {
     }
 }
 else {
-    print STDERR "[!] To generate a new menu, use `-g` or `-i` options.\n";
+    print STDERR "[!] To generate a new menu, please specify option `-g`.\n";
 }
 
 dump_configuration() if $update_config;
