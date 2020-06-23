@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2010-2020 Daniel "Trizen" Șuteu <echo dHJpemVueEBnbWFpbC5jb20K | base64 -d>.
+# Copyright (C) 2010-2020 Daniel "Trizen" Șuteu <echo dHJpemVuQHByb3Rvbm1haWwuY29tCg== | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 # Fluxbox Menu Generator
 # A simple menu generator for the Fluxbox Window Manager
@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 31 January 2020
+# Latest edit on: 23 June 2020
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -30,7 +30,7 @@ use File::Spec;
 use Linux::DesktopFiles 0.25;
 
 my $pkgname = 'fbmenugen';
-my $version = '0.84';
+my $version = '0.85';
 
 my ($with_icons, $db_clean, $create_menu, $pipe, $reload_config, $update_config);
 
@@ -144,7 +144,7 @@ if (@ARGV) {
         }
         elsif ($arg eq '-d') {
             $db_clean = 1;
-            print STDERR "[*] Regenerating the cache DB...\n";
+            print STDERR ":: Regenerating the cache DB...\n";
             remove_database($cache_db);
         }
         elsif ($arg eq '-u') {
@@ -375,7 +375,7 @@ sub get_icon_path {
 
 # Regenerate the cache db if the config or schema file has been modified
 if (!$db_clean and ((-M $config_file) < (-M $cache_db) or (-M _) > (-M $schema_file))) {
-    print STDERR "[*] Regenerating the cache DB...\n";
+    print STDERR ":: Regenerating the cache DB...\n";
     remove_database($cache_db);
     $db_clean = 1;
 }
@@ -395,7 +395,7 @@ if ($with_icons) {
     else {
         my $old_mtime = $cache_db{__GTKRC_MTIME__} // -1;
         if ($old_mtime != $gtkrc_mtime) {
-            print STDERR "[*] Regenerating the cache DB...\n";
+            print STDERR ":: Regenerating the cache DB...\n";
 
             dbmclose(%cache_db);
             remove_database($cache_db);
@@ -606,7 +606,7 @@ if ($create_menu) {
     print $out_fh $generated_menu;
 
     if (!$pipe) {
-        print STDERR "[*] A new menu has been successfully generated!\n";
+        print STDERR ":: A new menu has been successfully generated!\n";
     }
 }
 else {
