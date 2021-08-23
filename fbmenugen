@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2010-2020 Daniel "Trizen" Șuteu <echo dHJpemVuQHByb3Rvbm1haWwuY29tCg== | base64 -d>.
+# Copyright (C) 2010-2021 Daniel "Trizen" Șuteu <echo dHJpemVuQHByb3Rvbm1haWwuY29tCg== | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 23 June 2020
+# Latest edit on: 23 August 2021
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -30,7 +30,7 @@ use File::Spec;
 use Linux::DesktopFiles 0.25;
 
 my $pkgname = 'fbmenugen';
-my $version = '0.85';
+my $version = '0.86';
 
 my ($with_icons, $db_clean, $create_menu, $pipe, $reload_config, $update_config);
 
@@ -101,8 +101,8 @@ my $config_help = <<"HELP";
                             ],
 
 || ICON SETTINGS
-    | use_gtk3            : Use the Gtk3 library for resolving the icon paths. (default: 0)
-    | gtk_rc_filename     : Absolute path to the GTK configuration file.
+    | gtk_version         : The version of the Gtk library used for resolving the icon paths. (default: 3)
+    | gtk_rc_filename     : Absolute path to the Gtk configuration file.
     | missing_icon        : Use this icon for missing icons (default: gtk-missing-image)
     | icon_size           : Preferred size for icons. (default: 32)
     | generic_fallback    : Try to shorten icon name at '-' characters before looking at inherited themes. (default: 0)
@@ -226,13 +226,13 @@ my %CONFIG = (
     terminal        => 'xterm',
     editor          => 'geany',
     missing_icon    => 'gtk-missing-image',
-    gtk_rc_filename => "$home_dir/.gtkrc-2.0",
+    gtk_rc_filename => "$home_dir/.config/gtk-3.0/settings.ini",
 
     icon_size        => 32,
     force_icon_size  => 0,
     generic_fallback => 0,
     locale_support   => 1,
-    use_gtk3         => 0,
+    gtk_version      => 3,
 
     VERSION => $version,
              );
@@ -323,7 +323,7 @@ sub get_icon_path {
 
         require Digest::MD5;
 
-        $CONFIG{use_gtk3}
+        ($CONFIG{gtk_version} == 3)
           ? do {
             eval "use Gtk3";
             'Gtk3'->init;
@@ -393,7 +393,7 @@ if ($with_icons) {
         $cache_db{__GTKRC_MTIME__} = $gtkrc_mtime;
     }
     else {
-        my $old_mtime = $cache_db{__GTKRC_MTIME__} // -1;
+        my $old_mtime = exists($cache_db{__GTKRC_MTIME__}) ? $cache_db{__GTKRC_MTIME__} : -1;
         if ($old_mtime != $gtkrc_mtime) {
             print STDERR ":: Regenerating the cache DB...\n";
 
@@ -412,38 +412,48 @@ if ($with_icons) {
     my %fast_cache;
 
     sub check_icon {
-        $fast_cache{$_[0] // return ''} //= ($cache_db{$_[0]} //= get_icon_path($_[0]));
+        $fast_cache{$_[0] // return undef} //= do {
+            exists($cache_db{$_[0]})
+              ? $cache_db{$_[0]}
+              : do { $cache_db{$_[0]} = get_icon_path($_[0]) }
+        };
     }
 }
 
 sub prepare_item {
     my $command = shift() =~ s/\}/\\}/gr;
     my $name    = shift() =~ s/\)/\\)/gr;
-    my $icon = shift() || $CONFIG{missing_icon};
+    my $icon    = shift() || $CONFIG{missing_icon};
 
-    $with_icons
-      ? <<"ITEM_WITH_ICON"
-  [exec] ($name) {$command} <${\check_icon($icon)}>
+    if ($with_icons and (my $icon_path = check_icon($icon))) {
+        return <<"ITEM_WITH_ICON";
+  [exec] ($name) {$command} <$icon_path>
 ITEM_WITH_ICON
-      : <<"ITEM";
+    }
+
+    <<"ITEM";
   [exec] ($name) {$command}
 ITEM
 }
 
 sub begin_category {
-    $with_icons
-      ? <<"MENU_WITH_ICON"
-[submenu] ($_[0]) <${\check_icon($_[1])}>
+    my ($name, $icon) = @_;
+
+    if ($with_icons and (my $icon_path = check_icon($icon))) {
+        return <<"MENU_WITH_ICON";
+[submenu] ($name) <$icon_path>
 MENU_WITH_ICON
-      : <<"MENU";
-[submenu] ($_[0])
+    }
+
+    <<"MENU";
+[submenu] ($name)
 MENU
 }
 
 my %categories;
 foreach my $file ($desk_obj->get_desktop_files) {
 
-    my %info = split("\0\1\0", $cache_db{$file} // '', -1);
+    my %info = split("\0\1\0", (exists($cache_db{$file}) ? $cache_db{$file} : ''), -1);
 
     next if exists $info{__IGNORE__};
 
@@ -463,8 +473,8 @@ foreach my $file ($desk_obj->get_desktop_files) {
 
 #<<<
         %info = (
-            Name => $entry->{Name},
-            Exec => $entry->{Exec},
+            Name => $entry->{Name} // next,
+            Exec => $entry->{Exec} // next,
 
             (
              $with_icons
@@ -478,9 +488,14 @@ foreach my $file ($desk_obj->get_desktop_files) {
 #>>>
 
         eval {
-            require Encode;
-            require File::DesktopEntry;
+
+            state $x = do {
+                require Encode;
+                require File::DesktopEntry;
+            };
+
             $info{Name} = Encode::encode_utf8(File::DesktopEntry->new($file)->get('Name') // '');
+
         } if $CONFIG{locale_support};
 
         $cache_db{$file} = join("\0\1\0", %info);
@@ -541,13 +556,16 @@ foreach my $schema (@$SCHEMA) {
     }
     elsif (exists $schema->{exit}) {
         my ($name, $icon) = @{$schema->{exit}};
-        $generated_menu .= $with_icons
-          ? <<EXIT_WITH_ICON
-[exit] ($name) <${\check_icon($icon)}>
+        if ($with_icons and (my $icon_path = check_icon($icon))) {
+            $generated_menu .= <<EXIT_WITH_ICON;
+[exit] ($name) <$icon_path>
 EXIT_WITH_ICON
-          : <<EXIT;
+        }
+        else {
+            $generated_menu .= <<EXIT;
 [exit] ($name)
 EXIT
+        }
     }
     elsif (exists $schema->{regenerate}) {
         require Cwd;
