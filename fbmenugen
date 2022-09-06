@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2010-2021 Daniel "Trizen" Șuteu <echo dHJpemVuQHByb3Rvbm1haWwuY29tCg== | base64 -d>.
+# Copyright (C) 2010-2022 Daniel "Trizen" Șuteu <echo dHJpemVuQHByb3Rvbm1haWwuY29tCg== | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 23 August 2021
+# Latest edit on: 06 September 2022
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -30,7 +30,7 @@ use File::Spec;
 use Linux::DesktopFiles 0.25;
 
 my $pkgname = 'fbmenugen';
-my $version = '0.86';
+my $version = '0.87';
 
 my ($with_icons, $db_clean, $create_menu, $pipe, $reload_config, $update_config);
 
@@ -235,7 +235,7 @@ my %CONFIG = (
     gtk_version      => 3,
 
     VERSION => $version,
-             );
+);
 
 sub dump_configuration {
     require Data::Dump;
@@ -297,7 +297,7 @@ my $desk_obj = Linux::DesktopFiles->new(
 
     terminal              => $CONFIG{terminal},
     case_insensitive_cats => 1,
-                                       );
+);
 
 my $generated_menu = <<"HEADER";
 #
