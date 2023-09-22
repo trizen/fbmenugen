@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (C) 2010-2022 Daniel "Trizen" Șuteu <echo dHJpemVuQHByb3Rvbm1haWwuY29tCg== | base64 -d>.
+# Copyright (C) 2010-2023 Daniel "Trizen" Șuteu <echo dHJpemVuQHByb3Rvbm1haWwuY29tCg== | base64 -d>.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 # Name: fbmenugen
 # License: GPLv3
 # Created on: 01 August 2010
-# Latest edit on: 06 September 2022
+# Latest edit on: 22 September 2023
 # https://github.com/trizen/fbmenugen
 
 use 5.014;
@@ -30,7 +30,7 @@ use File::Spec;
 use Linux::DesktopFiles 0.25;
 
 my $pkgname = 'fbmenugen';
-my $version = '0.87';
+my $version = '0.88';
 
 my ($with_icons, $db_clean, $create_menu, $pipe, $reload_config, $update_config);
 
@@ -43,14 +43,16 @@ my $home_dir =
   || `echo -n ~`;
 
 my $xdg_config_home = $ENV{XDG_CONFIG_HOME} || "$home_dir/.config";
+my $xdg_cache_home  = $ENV{XDG_CACHE_HOME}  || "$home_dir/.cache";
 
 my $config_dir  = "$xdg_config_home/$pkgname";
 my $schema_file = "$config_dir/schema.pl";
 my $config_file = "$config_dir/config.pl";
-my $cache_db    = "$config_dir/cache.db";
+my $cache_dir   = "$xdg_cache_home/$pkgname";
 my $fluxbox_dir = "$home_dir/.fluxbox";
 my $menu_file   = "$fluxbox_dir/menu";
-my $icons_dir   = "$config_dir/icons";
+my $cache_db    = "$cache_dir/cache.db";
+my $icons_dir   = "$cache_dir/icons";
 
 sub usage {
     print <<"HELP";
@@ -179,6 +181,12 @@ if (not -d $config_dir) {
       or die "$0: can't create configuration directory `$config_dir': $!\n";
 }
 
+if (not -d $cache_dir) {
+    require File::Path;
+    File::Path::make_path($cache_dir)
+      or die "$0: can't create cache directory `$cache_dir': $!\n";
+}
+
 if ($with_icons and not -d $icons_dir) {
     remove_database($cache_db);
     require File::Path;
@@ -281,12 +289,23 @@ if ($CONFIG{VERSION} != $version) {
     dump_configuration();
 }
 
+#<<<
+my @desktop_files_paths = do {
+    my %seen;
+    grep { !$seen{$_}++ } (
+        ($ENV{XDG_DATA_DIRS} ? split(/:/, $ENV{XDG_DATA_DIRS}) : ()),
+        @{$CONFIG{'Linux::DesktopFiles'}{desktop_files_paths}},
+    );
+};
+#>>>
+
 my $desk_obj = Linux::DesktopFiles->new(
     %{$CONFIG{'Linux::DesktopFiles'}},
+    desktop_files_paths => \@desktop_files_paths,
 
     categories => [map { exists($_->{cat}) ? $_->{cat}[0] : () } @$SCHEMA],
 
-    keys_to_keep => ['Name', 'Exec',
+    keys_to_keep => ['Name', 'Exec', 'Path',
                      ($with_icons ? 'Icon' : ()),
                      (
                       ref($CONFIG{'Linux::DesktopFiles'}{skip_entry}) eq 'ARRAY'
@@ -475,6 +494,7 @@ foreach my $file ($desk_obj->get_desktop_files) {
         %info = (
             Name => $entry->{Name} // next,
             Exec => $entry->{Exec} // next,
+            Path => $entry->{Path} // '',
 
             (
              $with_icons
@@ -486,6 +506,15 @@ foreach my $file ($desk_obj->get_desktop_files) {
             __MTIME__      => $mtime,
         );
 #>>>
+
+        # Support for the Path key
+        if ($info{Path} ne '') {
+            require Encode;
+            my $path = Encode::decode_utf8($info{Path});
+            my $exec = Encode::decode_utf8($info{Exec});
+            $exec = "$^X -e 'chdir(\$ARGV[0]) && exec(\$ARGV[1])' \Q$path\E \Q$exec\E";
+            $info{Exec} = Encode::encode_utf8($exec);
+        }
 
         eval {
 
